@@ -68,7 +68,7 @@ class MyTestCase(unittest.TestCase):
               loss='categorical_crossentropy',
               metrics=['accuracy'])
         lca_model.Fit(x=XT,y=YT,validation_data=(xt,yt),epochs=2)
-        lca_model.lca_out(path = '/home/kelly/PycharmProjects/Scratch/',name='2D.h5')
+        lca_model.lca_out(path = '',name='2D.h5')
         # print(lca_model.LCA_vals)
 
     def test_model_1d(self):
@@ -84,7 +84,7 @@ class MyTestCase(unittest.TestCase):
               loss='categorical_crossentropy',
               metrics=['accuracy'])
         lca_model.Fit(x=XT,y=YT,validation_data=(xt,yt),epochs=2)
-        lca_model.lca_out(path = '/home/kelly/PycharmProjects/Scratch/',name='1D.h5')
+        lca_model.lca_out(path = '',name='1D.h5')
         # print(lca_model.last_LCA)
         # print(lca_model.LCA_vals)
 
@@ -126,7 +126,7 @@ class MyTestCase(unittest.TestCase):
               loss='categorical_crossentropy',
               metrics=['accuracy'])
         lca_model.Fit(x=XT,y=YT,validation_split=.2,epochs=2)
-        lca_model.lca_out(path = '/home/kelly/PycharmProjects/Scratch/',name='1D.h5')
+        lca_model.lca_out(path = '',name='1D.h5')
         # print(lca_model.last_LCA)
         # print(lca_model.LCA_vals)
     #
