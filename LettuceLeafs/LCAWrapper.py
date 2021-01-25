@@ -53,8 +53,8 @@ class LCAWrap(Model):
         del kwargs['epochs']
 
         self.OldWeights = self.get_weights()
-        if not kwargs['validation_data']:
-            X_train,Y_train,x_test,y_test = train_test_split(kwargs['x'],kwargs['y'],kwargs['validation_split'])
+        if 'validation_data' not in kwargs.keys():
+            X_train,x_test,Y_train,y_test = train_test_split(kwargs['x'],kwargs['y'],test_size=kwargs['validation_split'])
             kwargs['x']=X_train
             kwargs['y']=Y_train
             kwargs['validation_data'] = (x_test,y_test)

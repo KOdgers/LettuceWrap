@@ -52,7 +52,9 @@ def load_fashion():
 class MyTestCase(unittest.TestCase):
     def test_model_2d(self):
         XT,xt,YT,yt = load_fashion()
-        print(XT.shape,YT.shape)
+        XT = XT[:10000]
+        YT = YT[:10000]
+        # print(XT.shape,YT.shape)
         input = keras.Input(shape=(XT.shape[1],XT.shape[2],1))
         X = keras.layers.Conv2D(5,5,activation='relu')(input)
         X = keras.layers.BatchNormalization()(X)
@@ -67,11 +69,11 @@ class MyTestCase(unittest.TestCase):
               metrics=['accuracy'])
         lca_model.Fit(x=XT,y=YT,validation_data=(xt,yt),epochs=2)
         lca_model.lca_out(path = '/home/kelly/PycharmProjects/Scratch/',name='2D.h5')
-        print(lca_model.LCA_vals)
+        # print(lca_model.LCA_vals)
 
     def test_model_1d(self):
         XT,xt,YT,yt = load_data_covtype()
-        print(XT.shape,xt.shape,YT.shape,yt.shape)
+        # print(XT.shape,xt.shape,YT.shape,yt.shape)
         input = keras.Input(shape=(XT.shape[1]))
         X = keras.layers.Dense(5)(input)
         X = keras.layers.Dense(5)(X)
@@ -84,12 +86,12 @@ class MyTestCase(unittest.TestCase):
         lca_model.Fit(x=XT,y=YT,validation_data=(xt,yt),epochs=2)
         lca_model.lca_out(path = '/home/kelly/PycharmProjects/Scratch/',name='1D.h5')
         # print(lca_model.last_LCA)
-        print(lca_model.LCA_vals)
+        # print(lca_model.LCA_vals)
 
     def test_memory_check(self):
 
         XT,xt,YT,yt = load_data_covtype()
-        print(XT.shape,xt.shape,YT.shape,yt.shape)
+        # print(XT.shape,xt.shape,YT.shape,yt.shape)
         input = keras.Input(shape=(XT.shape[1]))
         X = keras.layers.Dense(5,name="Dense1")(input)
         X = keras.layers.Dense(5,name="Dense2")(X)
@@ -100,7 +102,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_memory_fail(self):
         XT,xt,YT,yt = load_data_covtype()
-        print(XT.shape,xt.shape,YT.shape,yt.shape)
+        # print(XT.shape,xt.shape,YT.shape,yt.shape)
         input = keras.Input(shape=(XT.shape[1]))
         X = keras.layers.Dense(100,name="Dense1")(input)
         X = keras.layers.Dense(100,name="Dense2")(X)
@@ -110,11 +112,26 @@ class MyTestCase(unittest.TestCase):
         self.assertRaises(Exception,lca_model.check_memory(),10000)
 
 
-    # def test_model_fit(self):
+    def test_splitting(self):
+
+        XT,xt,YT,yt = load_data_covtype()
+        # print(XT.shape,xt.shape,YT.shape,yt.shape)
+        input = keras.Input(shape=(XT.shape[1]))
+        X = keras.layers.Dense(5)(input)
+        X = keras.layers.Dense(5)(X)
+        X = keras.layers.Dense(10)(X)
+        out = keras.layers.Dense(YT.shape[1], activation='softmax')(X)
+        lca_model = LCAWrap(inputs=[input], outputs=out)
+        lca_model.compile(optimizer='adam',
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+        lca_model.Fit(x=XT,y=YT,validation_split=.2,epochs=2)
+        lca_model.lca_out(path = '/home/kelly/PycharmProjects/Scratch/',name='1D.h5')
+        # print(lca_model.last_LCA)
+        # print(lca_model.LCA_vals)
     #
     # def test_model_lca_storage(self):
     #
-
     #
     # def test_lca_saving(self):
 
