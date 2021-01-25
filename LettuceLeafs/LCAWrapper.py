@@ -2,6 +2,8 @@
 import numpy as np
 import tensorflow as tf
 import pandas as pd
+import sys
+from psutil import virtual_memory
 import tensorflow.keras.optimizers as opts
 from tensorflow.keras.losses import categorical_crossentropy
 from tensorflow.keras.models import Model
@@ -26,9 +28,16 @@ class LCAWrap(Model):
         except:
             self.layer_names = None
 
+        try:
+            self.lca_type = kwargs['lca_type']
+            del kwargs['lca_type']
+        except:
+            self.lca_type = 'Mean'
+
         super(LCAWrap, self).__init__(**kwargs)
         self.LCA_vals = {}
         self.last_LCA = None
+        self.memory_threshold = .9
 
 
         self.Weights=False
@@ -36,8 +45,10 @@ class LCAWrap(Model):
 
 
     def Fit(self,new_fitting = None,**kwargs):
+
         if not self.layer_names:
             self.get_layer_names()
+        self.check_memory()
         epochs = kwargs['epochs']
         del kwargs['epochs']
 
@@ -57,13 +68,16 @@ class LCAWrap(Model):
         # print('Y_test shape:',y_test.shape)
 
         for j in range(0,epochs):
+            assert self.single_epoch_size<virtual_memory()[1], "LCA will fill into swap this epoch"
+
             if not new_fitting:
                 self.fit(**kwargs,epochs=1)
             else:
                 new_fitting(**kwargs,epoch=1)
             self.get_grads()
             self.Weights = self.get_weights()
-            self.last_LCA = self.calculate_mean_LCA()
+
+            self.last_LCA = self.get_LCA()
             self.OldWeights = self.Weights
             self.LCA_vals[j] = self.last_LCA
 
@@ -76,42 +90,10 @@ class LCAWrap(Model):
         temp_df = pd.DataFrame.from_dict(temp_dict)
         temp_df.to_hdf(path+name,key='df')
 
-    # def run_epoch(self):
-    #
-    #     numUpdates = int(self.XTrain.shape[0] / self.BatchSize)
-    #     def step(X, y):
-    #         with tf.GradientTape() as tape:
-    #             pred = self.Model(X)
-    #             loss = categorical_crossentropy(y, pred)
-    #         grads = tape.gradient(loss, self.Model.trainable_variables)
-    #         self.opt.apply_gradients(zip(grads, self.Model.trainable_variables))
-    #
-    #     for i in range(0, numUpdates):
-    #         start_index = i * self.BatchSize
-    #         end_index = start_index + self.BatchSize
-    #         step(self.XTrain[start_index:end_index], self.YTrain[start_index:end_index])
-    #     pred = self.Model(self.xtest)
-    #     acc = categorical_accuracy(self.ytest,pred)
-    #     print(np.mean(acc))
-    #     self.loss = np.mean(acc)
-    #     #
-    #     self.XTrain,self.YTrain = shuffle(self.XTrain,self.YTrain)
 
-    def lca_epoch(self,run_epoch=None):
-
-        # compute the number of batch updates per epoch
-        if run_epoch:
-            run_epoch(self.Model,self.opt,self.XTrain,self.YTrain)
-        else:
-            self.run_epoch()
-        self.Weights = self.get_weights()
-        self.last_LCA = self.calculate_LCA()
-        self.OldWeights = self.Weights
-        return self.last_LCA
 
     def get_grads(self):
         with tf.GradientTape() as tape:
-            # tape.watch(self.trainable_variables)
             pred = self(self.x_test)
             loss = categorical_crossentropy(self.y_test,pred)
         return tape.gradient(loss,self.trainable_variables)
@@ -138,14 +120,50 @@ class LCAWrap(Model):
         for j,jj in enumerate(self.trainable_numbers):
             lca = grads[j]*(self.Weights[jj]-self.OldWeights[jj])
             LCA.append(np.mean(lca))
-            # print(LCA)
         return LCA
+
+    def calculate_LCA(self):
+        if not self.OldWeights:
+            return 'Model hasnt been run or oldweights have been lost'
+        grads = self.get_grads()
+        LCA = []
+        for j,jj in enumerate(self.trainable_numbers):
+            lca = grads[j]*(self.Weights[jj]-self.OldWeights[jj])
+            LCA.append(lca)
+        return LCA
+
+    def get_LCA(self):
+        if self.lca_type=='Mean':
+            return self.calculate_mean_LCA()
+        elif self.lca_type=='Raw':
+            return self.calculate_LCA()
 
     def get_layer_names(self):
         self.layer_names=[]
         for layer in self.layers:
             if layer.trainable:
                 self.layer_names.append(layer.name)
+
+    def check_memory(self,epochs=1):
+        tempArray = self.get_weights()
+        if self.lca_type=='Mean':
+            templist = []
+            for j in tempArray:
+                templist.append(np.mean(j))
+            size = sys.getsizeof(templist)
+        elif self.lca_type =='Raw':
+            size = sys.getsizeof(tempArray)
+        self.single_epoch_size = size*3
+        total_size = (size*epochs+3)
+        available_space = virtual_memory()[1]
+        if size*3 > self.memory_threshold*available_space:
+            raise Exception(" Single Epoch LCA will fill memory")
+        if total_size > self.memory_threshold*available_space:
+            raise Exception("LCA will fill memory before completing")
+
+
+
+
 
 
 

@@ -35,25 +35,23 @@ def load_fashion():
     train_labels = to_categorical(train_labels,10)
     test_labels = to_categorical(test_labels,10)
     # scale the values to 0.0 to 1.0
-    train_images = train_images / 255.0
-    test_images = test_images / 255.0
+    scale = np.max([np.max(train_images),np.max(test_images)])
+    train_images = train_images / scale
+    test_images = test_images / scale
 
     # reshape for feeding into the model
     train_images = train_images.reshape(train_images.shape[0], 28, 28, 1)
     test_images = test_images.reshape(test_images.shape[0], 28, 28, 1)
 
-    class_names = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
-                   'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot']
 
-    print('\ntrain_images.shape: {}, of {}'.format(train_images.shape, train_images.dtype))
-    print('test_images.shape: {}, of {}'.format(test_images.shape, test_images.dtype))
-    return train_images,test_images,train_labels,test_labels,class_names
+
+    return train_images,test_images,train_labels,test_labels
 
 
 
 class MyTestCase(unittest.TestCase):
     def test_model_2d(self):
-        XT,xt,YT,yt,classnames = load_fashion()
+        XT,xt,YT,yt = load_fashion()
         print(XT.shape,YT.shape)
         input = keras.Input(shape=(XT.shape[1],XT.shape[2],1))
         X = keras.layers.Conv2D(5,5,activation='relu')(input)
@@ -88,12 +86,35 @@ class MyTestCase(unittest.TestCase):
         # print(lca_model.last_LCA)
         print(lca_model.LCA_vals)
 
+    def test_memory_check(self):
+
+        XT,xt,YT,yt = load_data_covtype()
+        print(XT.shape,xt.shape,YT.shape,yt.shape)
+        input = keras.Input(shape=(XT.shape[1]))
+        X = keras.layers.Dense(5,name="Dense1")(input)
+        X = keras.layers.Dense(5,name="Dense2")(X)
+        X = keras.layers.Dense(10,name="Dense3")(X)
+        out = keras.layers.Dense(YT.shape[1], activation='softmax')(X)
+        lca_model = LCAWrap(inputs=[input], outputs=out,layer_names=['Dense1','Dense2','Dense3'])
+        lca_model.check_memory(epochs=1)
+
+    def test_memory_fail(self):
+        XT,xt,YT,yt = load_data_covtype()
+        print(XT.shape,xt.shape,YT.shape,yt.shape)
+        input = keras.Input(shape=(XT.shape[1]))
+        X = keras.layers.Dense(100,name="Dense1")(input)
+        X = keras.layers.Dense(100,name="Dense2")(X)
+        X = keras.layers.Dense(100,name="Dense3")(X)
+        out = keras.layers.Dense(YT.shape[1], activation='softmax')(X)
+        lca_model = LCAWrap(inputs=[input], outputs=out,lca_type='Raw',layer_names=['Dense1','Dense2','Dense3'])
+        self.assertRaises(Exception,lca_model.check_memory(),10000)
+
 
     # def test_model_fit(self):
     #
     # def test_model_lca_storage(self):
     #
-    # def test_memory_check(self):
+
     #
     # def test_lca_saving(self):
 
