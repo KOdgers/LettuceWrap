@@ -63,12 +63,12 @@ class MyTestCase(unittest.TestCase):
         X = keras.layers.GlobalMaxPool2D()(X)
         X = keras.layers.Dense(100)(X)
         out = keras.layers.Dense(YT.shape[1],activation='softmax')(X)
-        lca_model = LCAWrap(inputs=input,outputs=out)
+        lca_model = LCAWrap(inputs=input,outputs=out,lca_type='Mean')
         lca_model.compile(optimizer='adam',
               loss='categorical_crossentropy',
               metrics=['accuracy'])
+        lca_model.setup_lca_save(path='', basename='2D', occurence=10)
         lca_model.Fit(x=XT,y=YT,validation_data=(xt,yt),epochs=2)
-        lca_model.lca_out(path = '',name='2D.h5')
         # print(lca_model.LCA_vals)
 
     def test_model_1d(self):
@@ -79,12 +79,12 @@ class MyTestCase(unittest.TestCase):
         X = keras.layers.Dense(5)(X)
         X = keras.layers.Dense(10)(X)
         out = keras.layers.Dense(YT.shape[1], activation='softmax')(X)
-        lca_model = LCAWrap(inputs=[input], outputs=out)
+        lca_model = LCAWrap(inputs=[input], outputs=out, lca_type='Raw')
         lca_model.compile(optimizer='adam',
-              loss='categorical_crossentropy',
-              metrics=['accuracy'])
-        lca_model.Fit(x=XT,y=YT,validation_data=(xt,yt),epochs=2)
-        lca_model.lca_out(path = '',name='1D.h5')
+                          loss='categorical_crossentropy',
+                          metrics=['accuracy'])
+        lca_model.setup_lca_save(path='', basename='1D', occurence=10)
+        lca_model.Fit(x=XT, y=YT, validation_data=(xt, yt), epochs=20)
         # print(lca_model.last_LCA)
         # print(lca_model.LCA_vals)
 
@@ -97,7 +97,9 @@ class MyTestCase(unittest.TestCase):
         X = keras.layers.Dense(5,name="Dense2")(X)
         X = keras.layers.Dense(10,name="Dense3")(X)
         out = keras.layers.Dense(YT.shape[1], activation='softmax')(X)
-        lca_model = LCAWrap(inputs=[input], outputs=out,layer_names=['Dense1','Dense2','Dense3'])
+        lca_model = LCAWrap(inputs=[input], outputs=out,layer_names=['Dense1','Dense2','Dense3'],lca_type='Mean')
+        lca_model.setup_lca_save(path='', basename='1D', occurence=10)
+
         lca_model.check_memory(epochs=1)
 
     def test_memory_fail(self):
@@ -109,6 +111,8 @@ class MyTestCase(unittest.TestCase):
         X = keras.layers.Dense(100,name="Dense3")(X)
         out = keras.layers.Dense(YT.shape[1], activation='softmax')(X)
         lca_model = LCAWrap(inputs=[input], outputs=out,lca_type='Raw',layer_names=['Dense1','Dense2','Dense3'])
+        lca_model.setup_lca_save(path='', basename='1D', occurence=10)
+
         self.assertRaises(Exception,lca_model.check_memory(),10000)
 
 
@@ -125,8 +129,8 @@ class MyTestCase(unittest.TestCase):
         lca_model.compile(optimizer='adam',
               loss='categorical_crossentropy',
               metrics=['accuracy'])
+        lca_model.setup_lca_save(path='', basename='1D', occurence=10)
         lca_model.Fit(x=XT,y=YT,validation_split=.2,epochs=2)
-        lca_model.lca_out(path = '',name='1D.h5')
         # print(lca_model.last_LCA)
         # print(lca_model.LCA_vals)
     #

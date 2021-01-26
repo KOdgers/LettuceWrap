@@ -24,9 +24,12 @@ class LCAWrap(Model):
 
         try:
             self.layer_names = kwargs['layer_names']
+
             del kwargs['layer_names']
         except:
             self.layer_names = None
+
+
 
         try:
             self.lca_type = kwargs['lca_type']
@@ -34,20 +37,36 @@ class LCAWrap(Model):
         except:
             self.lca_type = 'Mean'
 
+
+
         super(LCAWrap, self).__init__(**kwargs)
         self.LCA_vals = {}
         self.last_LCA = None
         self.memory_threshold = .9
-
+        self.lca_save = False
+        self.df = None
+        self.max_occurence=None
+        self.variable_names = None
 
         self.Weights=False
         self.OldWeights = False
 
+        if not self.layer_names:
+            self.get_layer_names()
+            self.get_variable_names()
+        else:
+            self.get_variable_names()
+
+    def setup_lca_save(self,path,basename,occurence):
+        self.path = path
+        self.basename = basename
+        self.max_occurence=occurence
+        self.lca_save=True
+
 
     def Fit(self,new_fitting = None,**kwargs):
 
-        if not self.layer_names:
-            self.get_layer_names()
+
         self.check_memory()
         epochs = kwargs['epochs']
         del kwargs['epochs']
@@ -66,8 +85,9 @@ class LCAWrap(Model):
         self.x_test = x_test
         self.y_test = y_test
         # print('Y_test shape:',y_test.shape)
-
+        self.epochs = epochs
         for j in range(0,epochs):
+            self.current_epoch = j
             assert self.single_epoch_size<virtual_memory()[1], "LCA will fill into swap this epoch"
 
             if not new_fitting:
@@ -79,17 +99,30 @@ class LCAWrap(Model):
 
             self.last_LCA = self.get_LCA()
             self.OldWeights = self.Weights
-            self.LCA_vals[j] = self.last_LCA
 
         # print(self.LCA_vals)
 
 
 
-    def lca_out(self,path='',name = 'Temporary.h5'):
-        temp_dict = self.LCA_vals
-        temp_df = pd.DataFrame.from_dict(temp_dict)
-        temp_df.to_hdf(path+name,key='df')
+    # def lca_out(self,path='',name = 'Temporary.h5'):
+    #     temp_dict = self.LCA_vals
+    #     temp_df = pd.DataFrame.from_dict(temp_dict)
+    #     temp_df.to_hdf(path+name,key=str(self.current_epoch))
+    #     self.LCA_vals = {}
 
+    def lca_stream(self,path='',basename='',save_occurence=None,lca=None):
+        # temp_df = pd.DataFrame(lca,index=[self.current_epoch])
+        temp_df = pd.DataFrame(columns=lca.keys(),dtype = object)
+        for item in lca.keys():
+            temp_df.loc[self.current_epoch,item] = lca[item]
+        if self.df is not None:
+            self.df = pd.concat([self.df, temp_df])
+        else:
+            self.df = temp_df
+
+        if (self.current_epoch%save_occurence ==0 and self.current_epoch!=0) or self.current_epoch==self.epochs-1:
+            self.df.to_hdf(path+basename+str(int(self.current_epoch-save_occurence))+'.h5',key=(str(self.current_epoch-save_occurence)))
+            self.df = None
 
 
     def get_grads(self):
@@ -101,35 +134,41 @@ class LCAWrap(Model):
 
     def get_weights(self):
         listOfVariableTensors = self.trainable_weights
-        Weights = [[]]
+        Weights = {}
         self.trainable_numbers = []
-        print([listOfVariableTensors[i].name for i in range(0,len(listOfVariableTensors))])
 
         for l in range(0, len(listOfVariableTensors)):
-            if listOfVariableTensors[l].name.split("/")[0] in self.layer_names:
+            if listOfVariableTensors[l].name in self.variable_names:
                 self.trainable_numbers.append(l)
-                Weights.append(listOfVariableTensors[l].value())
-        del Weights[0]
+                Weights[listOfVariableTensors[l].name]=listOfVariableTensors[l].value()
+
         return Weights
 
     def calculate_mean_LCA(self):
         if not self.OldWeights:
             return 'Model hasnt been run or oldweights have been lost'
         grads = self.get_grads()
-        LCA = []
-        for j,jj in enumerate(self.trainable_numbers):
-            lca = grads[j]*(self.Weights[jj]-self.OldWeights[jj])
-            LCA.append(np.mean(lca))
+        LCA = {}
+        for j,name in enumerate(self.variable_names):
+            lca = grads[self.trainable_numbers[j]]*(self.Weights[name]-self.OldWeights[name])
+
+            LCA[name]=np.array(np.mean(lca))
+        if self.lca_save:
+            self.lca_stream(path = self.path,basename = self.basename,save_occurence = self.max_occurence,lca=LCA)
         return LCA
+
 
     def calculate_LCA(self):
         if not self.OldWeights:
             return 'Model hasnt been run or oldweights have been lost'
         grads = self.get_grads()
-        LCA = []
-        for j,jj in enumerate(self.trainable_numbers):
-            lca = grads[j]*(self.Weights[jj]-self.OldWeights[jj])
-            LCA.append(lca)
+        LCA = {}
+        for j,name in enumerate(self.variable_names):
+            lca = grads[self.trainable_numbers[j]]*(self.Weights[name]-self.OldWeights[name])
+
+            LCA[name]=np.array(lca)
+        if self.lca_save:
+            self.lca_stream(path=self.path, basename=self.basename, save_occurence=self.max_occurence, lca=LCA)
         return LCA
 
     def get_LCA(self):
@@ -143,29 +182,38 @@ class LCAWrap(Model):
         for layer in self.layers:
             if layer.trainable:
                 self.layer_names.append(layer.name)
+        self.variable_names = [item.name for item in self.trainable_weights]
+
+    def get_variable_names(self):
+        variable_names = [item.name for item in self.trainable_weights]
+        self.variable_names = []
+        for item in variable_names:
+            if item.split('/')[0] in self.layer_names:
+                self.variable_names.append(item)
 
     def check_memory(self,epochs=1):
+
         tempArray = self.get_weights()
         if self.lca_type=='Mean':
             templist = []
             for j in tempArray:
-                templist.append(np.mean(j))
+                templist.append(np.mean(tempArray[j]))
             size = sys.getsizeof(templist)
         elif self.lca_type =='Raw':
             size = sys.getsizeof(tempArray)
         self.single_epoch_size = size*3
-        total_size = (size*epochs+3)
+        total_size = size*(epochs+3)
         available_space = virtual_memory()[1]
-        if size*3 > self.memory_threshold*available_space:
+        try:
+            self.max_occurence = min(available_space//(size*3),self.max_occurence)
+        except:
+            self.max_occurence = available_space//(size*3)
+        if self.max_occurence==0:
             raise Exception(" Single Epoch LCA will fill memory")
         if total_size > self.memory_threshold*available_space:
-            raise Exception("LCA will fill memory before completing")
+            raise Exception("LCA will fill memory before completing epochs")
 
 
 
 
 
-
-
-
-1
