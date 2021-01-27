@@ -50,7 +50,7 @@ def load_fashion():
 
 
 class MyTestCase(unittest.TestCase):
-    def test_model_2d(self):
+    def test_model_2d_mean(self):
         XT,xt,YT,yt = load_fashion()
         XT = XT[:10000]
         YT = YT[:10000]
@@ -71,7 +71,7 @@ class MyTestCase(unittest.TestCase):
         lca_model.Fit(x=XT,y=YT,validation_data=(xt,yt),epochs=2)
         # print(lca_model.LCA_vals)
 
-    def test_model_1d(self):
+    def test_model_1d_raw(self):
         XT,xt,YT,yt = load_data_covtype()
         # print(XT.shape,xt.shape,YT.shape,yt.shape)
         input = keras.Input(shape=(XT.shape[1]))
@@ -85,8 +85,22 @@ class MyTestCase(unittest.TestCase):
                           metrics=['accuracy'])
         lca_model.setup_lca_save(path='', basename='1D', occurence=10)
         lca_model.Fit(x=XT, y=YT, validation_data=(xt, yt), epochs=20)
-        # print(lca_model.last_LCA)
-        # print(lca_model.LCA_vals)
+
+    def test_model_1d_node(self):
+        XT,xt,YT,yt = load_data_covtype()
+        # print(XT.shape,xt.shape,YT.shape,yt.shape)
+        input = keras.Input(shape=(XT.shape[1]))
+        X = keras.layers.Dense(5)(input)
+        X = keras.layers.Dense(5)(X)
+        X = keras.layers.Dense(10)(X)
+        out = keras.layers.Dense(YT.shape[1], activation='softmax')(X)
+        lca_model = LCAWrap(inputs=[input], outputs=out, lca_type='Raw')
+        lca_model.compile(optimizer='adam',
+                          loss='categorical_crossentropy',
+                          metrics=['accuracy'])
+        lca_model.setup_lca_save(path='', basename='1D', occurence=10)
+        lca_model.Fit(x=XT, y=YT, validation_data=(xt, yt), epochs=20)
+
 
     def test_memory_check(self):
 

@@ -171,11 +171,26 @@ class LCAWrap(Model):
             self.lca_stream(path=self.path, basename=self.basename, save_occurence=self.max_occurence, lca=LCA)
         return LCA
 
+    def calculate_per_node_LCA(self):
+        if not self.OldWeights:
+            return 'Model hasnt been run or oldweights have been lost'
+        grads = self.get_grads()
+        LCA = {}
+        for j,name in enumerate(self.variable_names):
+            lca = grads[self.trainable_numbers[j]]*(self.Weights[name]-self.OldWeights[name])
+
+            LCA[name]=np.mean(lca,axis=0)
+        if self.lca_save:
+            self.lca_stream(path=self.path, basename=self.basename, save_occurence=self.max_occurence, lca=LCA)
+        return LCA
+
     def get_LCA(self):
         if self.lca_type=='Mean':
             return self.calculate_mean_LCA()
         elif self.lca_type=='Raw':
             return self.calculate_LCA()
+        elif self.lca_type=='Node':
+            return self.calculate_per_node_LCA()
 
     def get_layer_names(self):
         self.layer_names=[]
@@ -201,6 +216,11 @@ class LCAWrap(Model):
             size = sys.getsizeof(templist)
         elif self.lca_type =='Raw':
             size = sys.getsizeof(tempArray)
+        elif self.lca_type =='Node':
+            templist = []
+            for j in tempArray:
+                templist.append(np.mean(tempArray[j],axis=0))
+            size = sys.getsizeof(templist)
         self.single_epoch_size = size*3
         total_size = size*(epochs+3)
         available_space = virtual_memory()[1]
