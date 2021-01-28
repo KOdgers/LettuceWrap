@@ -57,6 +57,8 @@ class LCAWrap(Model):
         else:
             self.get_variable_names()
 
+        self.variable_index()
+
     def setup_lca_save(self,path,basename,occurence):
         self.path = path
         self.basename = basename
@@ -131,15 +133,20 @@ class LCAWrap(Model):
             loss = categorical_crossentropy(self.y_test,pred)
         return tape.gradient(loss,self.trainable_variables)
 
+    def variable_index(self):
+        listOfVariableTensors = self.trainable_weights
+        self.trainable_numbers = {}
+
+        for l in range(0, len(listOfVariableTensors)):
+            if listOfVariableTensors[l].name in self.variable_names:
+                self.trainable_numbers[l] = listOfVariableTensors[l].name
 
     def get_weights(self):
         listOfVariableTensors = self.trainable_weights
         Weights = {}
-        self.trainable_numbers = []
 
         for l in range(0, len(listOfVariableTensors)):
             if listOfVariableTensors[l].name in self.variable_names:
-                self.trainable_numbers.append(l)
                 Weights[listOfVariableTensors[l].name]=listOfVariableTensors[l].value()
 
         return Weights
@@ -150,7 +157,7 @@ class LCAWrap(Model):
         grads = self.get_grads()
         LCA = {}
         for j,name in enumerate(self.variable_names):
-            lca = grads[self.trainable_numbers[j]]*(self.Weights[name]-self.OldWeights[name])
+            lca = grads[list(self.trainable_numbers.keys())[j]]*(self.Weights[name]-self.OldWeights[name])
 
             LCA[name]=np.array(np.mean(lca))
         if self.lca_save:
@@ -164,7 +171,7 @@ class LCAWrap(Model):
         grads = self.get_grads()
         LCA = {}
         for j,name in enumerate(self.variable_names):
-            lca = grads[self.trainable_numbers[j]]*(self.Weights[name]-self.OldWeights[name])
+            lca = grads[list(self.trainable_numbers.keys())[j]]*(self.Weights[name]-self.OldWeights[name])
 
             LCA[name]=np.array(lca)
         if self.lca_save:
@@ -177,7 +184,7 @@ class LCAWrap(Model):
         grads = self.get_grads()
         LCA = {}
         for j,name in enumerate(self.variable_names):
-            lca = grads[self.trainable_numbers[j]]*(self.Weights[name]-self.OldWeights[name])
+            lca = grads[list(self.trainable_numbers.keys())[j]]*(self.Weights[name]-self.OldWeights[name])
 
             LCA[name]=np.mean(lca,axis=0)
         if self.lca_save:

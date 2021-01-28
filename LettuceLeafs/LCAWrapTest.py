@@ -94,7 +94,7 @@ class MyTestCase(unittest.TestCase):
         X = keras.layers.Dense(5)(X)
         X = keras.layers.Dense(10)(X)
         out = keras.layers.Dense(YT.shape[1], activation='softmax')(X)
-        lca_model = LCAWrap(inputs=[input], outputs=out, lca_type='Raw')
+        lca_model = LCAWrap(inputs=[input], outputs=out, lca_type='Node')
         lca_model.compile(optimizer='adam',
                           loss='categorical_crossentropy',
                           metrics=['accuracy'])
@@ -115,7 +115,7 @@ class MyTestCase(unittest.TestCase):
         lca_model.setup_lca_save(path='', basename='1D', occurence=10)
 
         lca_model.check_memory(epochs=1)
-
+        
     def test_memory_fail(self):
         XT,xt,YT,yt = load_data_covtype()
         # print(XT.shape,xt.shape,YT.shape,yt.shape)
